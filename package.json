@@ -1,0 +1,32 @@
+{
+  "name": "powerpulse",
+  "version": "1.0.0",
+  "description": "Serverless Energy Tracking Platform - Cloud Computing Semester Project",
+  "main": "index.js",
+  "scripts": {
+    "install-deps": "cd backend && npm install",
+    "deploy": "serverless deploy",
+    "remove": "serverless remove",
+    "logs:addReading": "serverless logs -f addReading -t",
+    "logs:getAnalysis": "serverless logs -f getAnalysis -t",
+    "logs:csvUpload": "serverless logs -f csvUpload -t",
+    "serve": "npx http-server frontend -p 8000",
+    "serve:python": "cd frontend && python -m http.server 8000",
+    "info": "serverless info",
+    "test:local": "echo 'Starting local server...' && npm run serve"
+  },
+  "keywords": [
+    "serverless",
+    "aws",
+    "lambda",
+    "dynamodb",
+    "cognito",
+    "energy-tracking"
+  ],
+  "author": "Semester Project",
+  "license": "MIT",
+  "devDependencies": {
+    "serverless": "^4.0.0"
+  }
+}
+

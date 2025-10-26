@@ -1,0 +1,101 @@
+service: powerpulse
+
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-south-1
+  stage: ${opt:stage, 'dev'}
+  
+  environment:
+    READINGS_TABLE: !Ref ReadingsTable
+    USERS_TABLE: !Ref UsersTable
+  
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - !GetAtt ReadingsTable.Arn
+            - !GetAtt UsersTable.Arn
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: arn:aws:logs:*:*:*
+
+functions:
+  addReading:
+    handler: backend/addReading.handler
+    events:
+      - http:
+          path: addReading
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+
+  getAnalysis:
+    handler: backend/getAnalysis.handler
+    events:
+      - http:
+          path: getAnalysis
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+
+  csvUpload:
+    handler: backend/csvUpload.handler
+    events:
+      - http:
+          path: uploadCSV
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+
+resources:
+  Resources:
+    ReadingsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Readings-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: date
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: date
+            KeyType: RANGE
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Users-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH

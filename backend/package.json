@@ -1,0 +1,12 @@
+{
+    "name": "powerpulse-backend",
+    "version": "1.0.0",
+    "description": "PowerPulse serverless backend",
+    "main": "index.js",
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+      "aws-sdk": "^2.1500.0"
+    }
+  }

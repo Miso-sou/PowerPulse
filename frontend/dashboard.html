@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerPulse Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="dashboard-page">
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">⚡ PowerPulse Dashboard</span>
+            <button class="btn btn-outline-light" onclick="handleLogout()">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Add Reading Section -->
+            <div class="col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5>Add Daily Reading</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="readingDate" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="readingDate">
+                        </div>
+                        <div class="mb-3">
+                            <label for="readingUsage" class="form-label">Usage (kWh)</label>
+                            <input type="number" class="form-control" id="readingUsage" placeholder="0.0" step="0.1" min="0">
+                        </div>
+                        <button class="btn btn-success w-100" onclick="addReading()">Add Reading</button>
+                    </div>
+                </div>
+
+                <!-- Stats Section -->
+                <div class="card mt-3">
+                    <div class="card-header bg-info text-white">
+                        <h5>Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Average:</strong> <span id="avgUsage">-</span> kWh</p>
+                        <p><strong>Max:</strong> <span id="maxUsage">-</span> kWh</p>
+                        <p><strong>Min:</strong> <span id="minUsage">-</span> kWh</p>
+                    </div>
+                </div>
+
+                <!-- CSV Upload Section -->
+                <div class="card mt-3">
+                    <div class="card-header bg-secondary text-white">
+                        <h5>Bulk Upload (CSV)</h5>
+                    </div>
+                    <div class="card-body">
+                        <input type="file" class="form-control mb-2" id="csvFile" accept=".csv">
+                        <small class="text-muted d-block mb-2">Format: date, usage</small>
+                        <button class="btn btn-secondary w-100" onclick="uploadCSV()">Upload CSV</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5>Usage Trends</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="usageChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Tips Section -->
+        <div class="row mt-4">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5>💡 AI Energy Efficiency Tips</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-success mb-3" onclick="getTips()">Generate Tips</button>
+                        <div id="tipsContainer">
+                            <p class="text-muted">Click "Generate Tips" to see AI-powered energy saving suggestions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="message" class="alert" style="display:none; position:fixed; top:20px; right:20px; z-index:1050; min-width:300px;"></div>
+
+    <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
+    <script src="js/config.js?v=2"></script>
+    <script src="js/auth.js?v=2"></script>
+    <script src="js/dashboard.js?v=2"></script>
+</body>
+</html>
