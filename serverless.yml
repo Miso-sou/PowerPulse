@@ -11,6 +11,12 @@ provider:
   environment:
     READINGS_TABLE: !Ref ReadingsTable
     USERS_TABLE: !Ref UsersTable
+    USER_PROFILE_TABLE: !Ref UserProfileTable
+    INSIGHTS_TABLE: !Ref InsightsTable
+    HUGGINGFACE_API_KEY: ${env:HUGGINGFACE_API_KEY, ''}
+    OPENWEATHER_API_KEY: ${env:OPENWEATHER_API_KEY, ''}
+    USE_AI: ${env:USE_AI, 'false'}
+    AI_MODEL: ${env:AI_MODEL, 'meta-llama/Llama-3.1-8B-Instruct'}
   
   iam:
     role:
@@ -27,6 +33,8 @@ provider:
           Resource:
             - !GetAtt ReadingsTable.Arn
             - !GetAtt UsersTable.Arn
+            - !GetAtt UserProfileTable.Arn
+            - !GetAtt InsightsTable.Arn
         - Effect: Allow
           Action:
             - logs:CreateLogGroup
@@ -68,6 +76,50 @@ functions:
             type: COGNITO_USER_POOLS
             arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
 
+  userProfile:
+    handler: backend/userProfile.handler
+    events:
+      - http:
+          path: profile
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+      - http:
+          path: profile
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+      - http:
+          path: profile
+          method: delete
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+
+  generateInsights:
+    handler: backend/generateInsights.handler
+    timeout: 29
+    events:
+      - http:
+          path: insights
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+      - http:
+          path: insights
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+
 resources:
   Resources:
     ReadingsTable:
@@ -99,3 +151,34 @@ resources:
         KeySchema:
           - AttributeName: userId
             KeyType: HASH
+
+    UserProfileTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: UserProfile-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+
+    InsightsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Insights-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: date
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: date
+            KeyType: RANGE
+        TimeToLiveSpecification:
+          Enabled: true
+          AttributeName: ttl

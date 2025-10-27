@@ -1,0 +1,12 @@
+# PowerPulse Environment Variables
+
+HUGGINGFACE_API_KEY=hf_your-token-here
+OPENWEATHER_API_KEY=your-openweather-key-here
+USE_AI=true
+AI_MODEL=mistralai/Mistral-7B-Instruct-v0.2
+
+# How to get API keys:
+# 1. Hugging Face: https://huggingface.co/settings/tokens (FREE - No credit card!)
+# 2. OpenWeather: https://openweathermap.org/api
+
+# Note: All are optional. System works with rule-based insights if not provided.

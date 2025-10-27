@@ -75,17 +75,77 @@
             </div>
         </div>
 
-        <!-- AI Tips Section -->
+        <!-- User Profile Section -->
         <div class="row mt-4">
             <div class="col-lg-12">
                 <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h5>💡 AI Energy Efficiency Tips</h5>
+                    <div class="card-header bg-warning text-dark">
+                        <h5>👤 User Profile</h5>
                     </div>
                     <div class="card-body">
-                        <button class="btn btn-success mb-3" onclick="getTips()">Generate Tips</button>
-                        <div id="tipsContainer">
-                            <p class="text-muted">Click "Generate Tips" to see AI-powered energy saving suggestions.</p>
+                        <div id="profileDisplay" style="display: none;">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <strong>Location:</strong> <span id="displayLocation">-</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Home Type:</strong> <span id="displayHomeType">-</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-sm btn-primary" onclick="showProfileForm()">Edit Profile</button>
+                                </div>
+                            </div>
+                            <div>
+                                <strong>Appliances:</strong>
+                                <div id="displayAppliances" class="mt-2"></div>
+                            </div>
+                        </div>
+
+                        <div id="profileForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="location" class="form-label">Location (City)</label>
+                                    <input type="text" class="form-control" id="location" placeholder="e.g., Mumbai">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="homeType" class="form-label">Home Type</label>
+                                    <select class="form-select" id="homeType">
+                                        <option value="">Select...</option>
+                                        <option value="Apartment">Apartment</option>
+                                        <option value="Bungalow">Bungalow</option>
+                                        <option value="Villa">Villa</option>
+                                        <option value="Studio">Studio</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Appliances (Select all that apply)</label>
+                                <div class="row" id="appliancesCheckboxes">
+                                    <!-- Will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            <button class="btn btn-warning" onclick="saveProfile()">Save Profile</button>
+                            <button class="btn btn-secondary" onclick="cancelProfileEdit()" id="cancelProfileBtn" style="display: none;">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Insights Section -->
+        <div class="row mt-4">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">🧠 AI-Powered Energy Insights</h5>
+                        <button class="btn btn-light btn-sm" onclick="generateInsights()">
+                            <span id="generateBtnText">Generate Insights</span>
+                            <span id="generateBtnSpinner" class="spinner-border spinner-border-sm ms-2" role="status" style="display: none;"></span>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="insightsContainer">
+                            <p class="text-muted">Click "Generate Insights" to get personalized, AI-powered energy saving recommendations based on your usage patterns, appliances, and local weather.</p>
                         </div>
                     </div>
                 </div>
