@@ -357,4 +357,3 @@ Semester Project - Cloud Computing Course
 
 ---
 
-**Note**: This application uses AWS Free Tier services, but please monitor your usage to avoid unexpected charges. Always clean up resources when not in use.
