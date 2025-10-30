@@ -26,7 +26,8 @@
   "author": "Semester Project",
   "license": "MIT",
   "devDependencies": {
-    "serverless": "^4.0.0"
+    "serverless": "^4.0.0",
+    "serverless-s3-sync": "^3.3.1"
   }
 }
 

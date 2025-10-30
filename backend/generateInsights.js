@@ -1,15 +1,18 @@
 const AWS = require('aws-sdk');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const axios = require('axios');
+const crypto = require('crypto');
 
 // Environment variables
 const READINGS_TABLE = process.env.READINGS_TABLE || 'Readings';
 const USER_PROFILE_TABLE = process.env.USER_PROFILE_TABLE || 'UserProfile';
 const INSIGHTS_TABLE = process.env.INSIGHTS_TABLE || 'Insights';
+const INSIGHTS_CACHE_TABLE = process.env.INSIGHTS_CACHE_TABLE || 'InsightsCache';
+const RATE_LIMITS_TABLE = process.env.RATE_LIMITS_TABLE || 'RateLimits';
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
 const USE_AI = process.env.USE_AI === 'true';
-const AI_MODEL = process.env.AI_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
+const AI_MODEL = process.env.AI_MODEL || 'google/gemma-2-9b-it';
 
 // Load appliance profiles
 const applianceProfiles = require('./data/applianceProfiles.json');
@@ -30,6 +33,74 @@ async function fetchUserReadings(userId, days = 30) {
 
     const result = await dynamodb.query(params).promise();
     return result.Items || [];
+}
+
+function computeRequestHash({ readings, userProfile, model, dateBucket }) {
+    const payload = {
+        readings: readings.slice(-7).map(r => ({ d: r.date, u: r.usage })),
+        profile: {
+            homeType: userProfile.homeType,
+            appliances: userProfile.appliances
+        },
+        model,
+        dateBucket,
+        v: 1
+    };
+    return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+async function getCache(userId, requestHash) {
+    const res = await dynamodb.get({
+        TableName: INSIGHTS_CACHE_TABLE,
+        Key: { userId, requestHash }
+    }).promise();
+    return res.Item || null;
+}
+
+async function putCacheReady(userId, requestHash, data, ttlSeconds = 2 * 60) {
+    const ttl = Math.floor(Date.now() / 1000) + ttlSeconds;
+    await dynamodb.put({
+        TableName: INSIGHTS_CACHE_TABLE,
+        Item: { userId, requestHash, status: 'ready', insights: data, updatedAt: Date.now(), ttl }
+    }).promise();
+}
+
+async function putCachePending(userId, requestHash, ttlSeconds = 30 * 60) {
+    const ttl = Math.floor(Date.now() / 1000) + ttlSeconds;
+    // Only create if not exists
+    await dynamodb.put({
+        TableName: INSIGHTS_CACHE_TABLE,
+        Item: { userId, requestHash, status: 'pending', updatedAt: Date.now(), ttl },
+        ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(requestHash)'
+    }).promise().catch(() => {});
+}
+
+async function checkAndConsumeRateLimit(userId) {
+    const now = Math.floor(Date.now() / 1000);
+    const windowSec = 60;
+    const capacity = 4; // 4 per minute
+    const cooldown = 15; // at least 15s between calls
+
+    const res = await dynamodb.get({ TableName: RATE_LIMITS_TABLE, Key: { userId } }).promise();
+    let item = res.Item || { userId, windowStart: now, count: 0, lastTs: 0 };
+
+    // reset window if elapsed
+    if (now - item.windowStart >= windowSec) {
+        item.windowStart = now;
+        item.count = 0;
+    }
+    if (now - (item.lastTs || 0) < cooldown) {
+        const retryAfter = cooldown - (now - (item.lastTs || 0));
+        return { allowed: false, retryAfter };
+    }
+    if (item.count >= capacity) {
+        const retryAfter = item.windowStart + windowSec - now;
+        return { allowed: false, retryAfter: Math.max(retryAfter, 1) };
+    }
+    item.count += 1;
+    item.lastTs = now;
+    await dynamodb.put({ TableName: RATE_LIMITS_TABLE, Item: item }).promise();
+    return { allowed: true };
 }
 
 /**
@@ -421,6 +492,62 @@ exports.handler = async (event) => {
             };
         }
 
+        // Build request hash up-front (used for cache even when rate-limited)
+        const dateBucket = new Date().toISOString().slice(0, 10);
+        const requestHash = computeRequestHash({ readings, userProfile, model: AI_MODEL, dateBucket });
+
+        // RATE LIMIT guard
+        const rate = await checkAndConsumeRateLimit(userId);
+        if (!rate.allowed) {
+            // Try to serve cached insights for this exact request
+            const cachedOnLimit = await getCache(userId, requestHash);
+            if (cachedOnLimit && cachedOnLimit.status === 'ready' && Array.isArray(cachedOnLimit.insights)) {
+                return {
+                    statusCode: 429,
+                    headers,
+                    body: JSON.stringify({
+                        error: 'Too Many Requests',
+                        retryAfter: rate.retryAfter,
+                        usingCache: true,
+                        message: 'Too many requests. Showing previously generated insights.',
+                        insights: cachedOnLimit.insights,
+                        metadata: { type: 'ai-enhanced', cache: true, rateLimited: true }
+                    })
+                };
+            }
+            // Fallback: try most recent stored insights
+            const latest = await fetchLatestInsights(userId, 1);
+            if (latest.length > 0 && Array.isArray(latest[0].insights)) {
+                return {
+                    statusCode: 429,
+                    headers,
+                    body: JSON.stringify({
+                        error: 'Too Many Requests',
+                        retryAfter: rate.retryAfter,
+                        usingCache: true,
+                        message: 'Too many requests. Showing your most recent insights.',
+                        insights: latest[0].insights,
+                        metadata: { type: 'cached-latest', rateLimited: true, fromDate: latest[0].date }
+                    })
+                };
+            }
+            // Nothing available; return 429
+            return { statusCode: 429, headers, body: JSON.stringify({ error: 'Too Many Requests', retryAfter: rate.retryAfter }) };
+        }
+
+        // Request hash & cache check
+        const cached = await getCache(userId, requestHash);
+        if (cached && cached.status === 'ready') {
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ insights: cached.insights, metadata: { type: 'ai-enhanced', cache: true } })
+            };
+        }
+        if (!cached) {
+            await putCachePending(userId, requestHash);
+        }
+
         // Step 3: Estimate appliance consumption
         const applianceEstimates = estimateApplianceConsumption(userProfile.appliances);
         console.log('Appliance estimates:', applianceEstimates);
@@ -462,6 +589,7 @@ exports.handler = async (event) => {
                 allInsights = [...aiInsights, ...ruleBasedInsights];
                 insightsMetadata.type = 'ai-enhanced';
                 insightsMetadata.aiInsightsCount = aiInsights.length;
+                await putCacheReady(userId, requestHash, allInsights);
                 console.log(`Generated ${aiInsights.length} AI insights`);
             }
         }

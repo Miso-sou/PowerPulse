@@ -13,10 +13,12 @@ provider:
     USERS_TABLE: !Ref UsersTable
     USER_PROFILE_TABLE: !Ref UserProfileTable
     INSIGHTS_TABLE: !Ref InsightsTable
+    INSIGHTS_CACHE_TABLE: !Ref InsightsCacheTable
+    RATE_LIMITS_TABLE: !Ref RateLimitsTable
     HUGGINGFACE_API_KEY: ${env:HUGGINGFACE_API_KEY, ''}
     OPENWEATHER_API_KEY: ${env:OPENWEATHER_API_KEY, ''}
     USE_AI: ${env:USE_AI, 'false'}
-    AI_MODEL: ${env:AI_MODEL, 'meta-llama/Llama-3.1-8B-Instruct'}
+    AI_MODEL: ${env:AI_MODEL, 'google/gemma-2-9b-it'}
   
   iam:
     role:
@@ -35,6 +37,8 @@ provider:
             - !GetAtt UsersTable.Arn
             - !GetAtt UserProfileTable.Arn
             - !GetAtt InsightsTable.Arn
+            - !GetAtt InsightsCacheTable.Arn
+            - !GetAtt RateLimitsTable.Arn
         - Effect: Allow
           Action:
             - logs:CreateLogGroup
@@ -120,6 +124,15 @@ functions:
             type: COGNITO_USER_POOLS
             arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
 
+plugins:
+  - serverless-s3-sync
+
+custom:
+  frontendBucketName: powerpulse-frontend-${self:provider.stage}-${aws:accountId}
+  s3Sync:
+    - bucketName: ${self:custom.frontendBucketName}
+      localDir: frontend
+
 resources:
   Resources:
     ReadingsTable:
@@ -182,3 +195,106 @@ resources:
         TimeToLiveSpecification:
           Enabled: true
           AttributeName: ttl
+
+    InsightsCacheTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: InsightsCache-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: requestHash
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: requestHash
+            KeyType: RANGE
+        TimeToLiveSpecification:
+          Enabled: true
+          AttributeName: ttl
+
+    RateLimitsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: RateLimits-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+
+    FrontendBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.frontendBucketName}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        VersioningConfiguration:
+          Status: Enabled
+
+    FrontendOAI:
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment: Access identity for PowerPulse frontend
+
+    FrontendBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: ${self:custom.frontendBucketName}
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Sid: AllowCloudFrontRead
+              Effect: Allow
+              Principal:
+                CanonicalUser: !GetAtt FrontendOAI.S3CanonicalUserId
+              Action:
+                - s3:GetObject
+              Resource: arn:aws:s3:::${self:custom.frontendBucketName}/*
+
+    FrontendDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          DefaultRootObject: index.html
+          PriceClass: PriceClass_100
+          Origins:
+            - Id: FrontendS3Origin
+              DomainName: !GetAtt FrontendBucket.RegionalDomainName
+              S3OriginConfig:
+                OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${FrontendOAI}"
+          DefaultCacheBehavior:
+            TargetOriginId: FrontendS3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          ViewerCertificate:
+            CloudFrontDefaultCertificate: true
+          HttpVersion: http2
+          IPV6Enabled: true
+
+  Outputs:
+    FrontendBucketName:
+      Value: ${self:custom.frontendBucketName}
+    CloudFrontDomainName:
+      Value: !GetAtt FrontendDistribution.DomainName
+
+    InsightsCacheTableName:
+      Value: !Ref InsightsCacheTable
+    RateLimitsTableName:
+      Value: !Ref RateLimitsTable
