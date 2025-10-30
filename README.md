@@ -341,7 +341,6 @@ aws s3 rb s3://powerpulse-frontend-yourname --force
 
 ## 📊 Future Enhancements
 
-- [ ] Integrate OpenAI API for real AI tips
 - [ ] Add monthly/yearly reports
 - [ ] Email notifications for high usage
 - [ ] Comparison with average household usage
