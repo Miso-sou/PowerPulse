@@ -1,23 +1,43 @@
-# ⚡ PowerPulse - Serverless Energy Tracking Platform
+# ⚡ PowerPulse — Personalized Energy Analytics (Serverless)
 
-PowerPulse is a serverless web application that helps users track their daily electricity consumption, visualize usage trends, and get AI-powered energy efficiency tips. Built entirely on AWS Free Tier services for a Cloud Computing semester project.
+PowerPulse is a serverless web application to log daily electricity usage, visualize trends, and receive AI‑powered insights. It’s designed to be low‑cost (pay‑per‑use), secure, and easy to deploy on AWS.
 
-## 🏗️ Architecture
+## 🔭 Overview
+- Log daily readings (manual form or CSV upload)
+- View trends and statistics (average, max, min)
+- Create a profile (location, home type, appliances + star ratings)
+- Rule‑based insights instantly; optional AI‑enhanced insights
+- Built‑in rate limiting and short‑term caching to control cost
 
-### Tech Stack
-- **Frontend**: HTML, CSS, JavaScript, Bootstrap 5, Chart.js
-- **Backend**: AWS Lambda (Node.js 20.x)
-- **Database**: AWS DynamoDB
-- **Authentication**: AWS Cognito User Pool
-- **API**: AWS API Gateway (REST API)
-- **Deployment**: Serverless Framework v4
+## 🧰 Tech Stack
+- Frontend: HTML, CSS, Bootstrap 5, Chart.js (static site)
+- Backend: Node.js on AWS Lambda (Serverless Framework v4)
+- Data: DynamoDB tables — Readings, UserProfile, Insights, InsightsCache, RateLimits
+- Auth: Amazon Cognito (ID token)
+- Hosting: S3 (private) behind CloudFront CDN
+- AI: Hugging Face Inference Providers API (v1 chat completions)
 
-### AWS Services Used
-- **AWS Lambda** - Serverless compute for backend functions
-- **AWS DynamoDB** - NoSQL database for storing user readings
-- **AWS Cognito** - User authentication and authorization
-- **AWS API Gateway** - RESTful API endpoints
-- **AWS IAM** - Role and permission management
+## 🧱 AWS Services (and why)
+- API Gateway: Secured REST endpoints with Cognito authorizer
+- Lambda: Pay‑per‑use compute for all backend functions
+- DynamoDB:
+  - Readings‑{stage}: daily readings (PK userId, SK date)
+  - UserProfile‑{stage}: profile & appliances
+  - Insights‑{stage}: stored insights (TTL)
+  - InsightsCache‑{stage}: AI cache (~2 minutes TTL)
+  - RateLimits‑{stage}: per‑user token bucket
+- Cognito: Authentication with ID tokens for API access
+- S3 + CloudFront: Static frontend hosting with HTTPS/CDN
+- IAM: Least‑privilege roles; CloudFront OAI for S3
+
+## ✨ Features
+- Add daily usage; upload CSV (YYYY‑MM‑DD, kWh)
+- Trend chart; avg / max / min
+- Profile: location, home type, appliances (1–5 star)
+- Rule‑based insights: spikes, weekly trend, weather correlation, cost estimate
+- AI insights (e.g., google/gemma‑2‑9b‑it via HF v1 chat completions)
+- Caching: identical requests served from DynamoDB (~2 minutes)
+- Rate limiting: 1 req/15s; max 4/min; on limit we return cached/latest insights
 
 ## 📁 Project Structure
 

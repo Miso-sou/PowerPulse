@@ -1,4 +1,4 @@
-# 🤗 Hugging Face Integration - 100% FREE AI
+# 🤗 Hugging Face Integration & AI Insights
 
 ## ✅ Why Hugging Face?
 
@@ -66,7 +66,7 @@ You can change the `AI_MODEL` environment variable to any of these:
 | **`meta-llama/Meta-Llama-3-8B-Instruct`** | ⚡⚡ Fast | ⭐⭐⭐⭐⭐ | High quality |
 | **`HuggingFaceH4/zephyr-7b-beta`** | ⚡⚡ Fast | ⭐⭐⭐⭐ | Good balance |
 
-**Default:** We're using **Mistral-7B** - it's the best free option!
+**Default model in this project:** `google/gemma-2-9b-it` (override with env `AI_MODEL`).
 
 ---
 
@@ -100,7 +100,22 @@ PLUS all your rule-based insights!
 
 ---
 
-## ⚡ Performance Notes
+## 🧠 How AI Insights Are Generated
+1) User requests `/insights` with Cognito ID token.
+2) Backend loads last 30 days of readings + user profile + optional weather.
+3) Rule‑based insights are generated immediately (spikes, trends, weather, cost).
+4) We compute a request hash (last 7 readings + profile + model + date bucket) and check DynamoDB `InsightsCache`.
+   - If cached (status=ready): return cached AI insights immediately.
+   - If not cached: call Hugging Face v1 Chat Completions:
+     - POST `https://router.huggingface.co/v1/chat/completions`
+     - `{ model, messages: [{ role: 'user', content: <context> }], max_tokens, temperature }`
+5) Parse the text into 3–5 cards and store in `InsightsCache` (TTL ~2 min) and `Insights` history.
+6) Response includes metadata (type, cache, readingsCount, etc.).
+
+## ⏱️ Request Limiting & Caching
+- Rate limiting: token‑bucket (1 request/15s, max 4/min per user).
+- On limit, API responds 429 and includes cached insights when available (or most recent insights).
+- `InsightsCache`: avoids duplicate calls for identical inputs for ~2 minutes.
 
 ### **First Request (Cold Start):**
 - **Time:** 20-30 seconds
@@ -119,7 +134,7 @@ PLUS all your rule-based insights!
 
 ---
 
-## 💰 Free Tier Limits
+## ⚡ Performance Notes
 
 ### **What You Get FREE:**
 

@@ -1,39 +1,20 @@
-# 🚀 PowerPulse Deployment Guide
+# 🚀 PowerPulse Deployment Guide (AWS, Serverless)
 
-This guide provides step-by-step instructions for deploying PowerPulse to AWS.
+This is the fastest path to deploy both backend and frontend (S3 + CloudFront).
 
-## Prerequisites Checklist
+## Prerequisites
+- Node.js 18+
+- AWS account
+- Serverless Framework (installed via project devDependency)
+- Optional: AWS CLI for some convenience commands
 
-- [ ] Node.js 18+ installed
-- [ ] AWS Account created
-- [ ] AWS CLI installed and configured
-- [ ] Serverless Framework installed globally: `npm install -g serverless`
-
-## Step 1: AWS Account Setup
-
-1. **Create AWS Account**: https://aws.amazon.com/free/
-2. **Create IAM User** with programmatic access
-   - Permissions: AdministratorAccess (or specific permissions for Lambda, DynamoDB, API Gateway, Cognito, IAM, CloudFormation)
-3. **Save Access Key ID and Secret Access Key**
-
-## Step 2: Configure AWS CLI
-
+## 1) Install dependencies
 ```bash
-aws configure
+npm install
+cd backend && npm install && cd ..
 ```
 
-Enter:
-- AWS Access Key ID: `[Your Access Key]`
-- AWS Secret Access Key: `[Your Secret Key]`
-- Default region name: `ap-south-1` (or your preferred region)
-- Default output format: `json`
-
-Verify configuration:
-```bash
-aws sts get-caller-identity
-```
-
-## Step 3: Create Cognito User Pool
+## 2) Configure Cognito (once)
 
 ### Option A: AWS Console
 
@@ -89,7 +70,7 @@ aws cognito-idp create-user-pool-client \
 # Note the "ClientId" from the output
 ```
 
-## Step 4: Get Cognito ARN
+## 3) Update configuration
 
 ```bash
 # Get your AWS Account ID
@@ -100,7 +81,7 @@ aws sts get-caller-identity --query Account --output text
 # Example: arn:aws:cognito-idp:ap-south-1:123456789012:userpool/ap-south-1_ABC123XYZ
 ```
 
-## Step 5: Update Configuration Files
+### serverless.yml
 
 ### 1. Update `serverless.yml`
 
@@ -119,25 +100,13 @@ authorizer:
   arn: arn:aws:cognito-idp:ap-south-1:123456789012:userpool/ap-south-1_ABC123XYZ
 ```
 
-### 2. Install Backend Dependencies
+## 4) Deploy (backend + frontend infra)
 
 ```bash
-cd backend
-npm install
-cd ..
+ npx serverless deploy --stage dev
 ```
 
-## Step 6: Deploy Backend to AWS
-
-```bash
-serverless deploy
-```
-
-This will:
-- Create Lambda functions
-- Create DynamoDB tables
-- Create API Gateway endpoints
-- Set up IAM roles and permissions
+Creates: API Gateway + Lambda, DynamoDB tables, S3 bucket, CloudFront distribution.
 
 **Expected Output:**
 ```
@@ -157,7 +126,7 @@ functions:
 **📝 Copy the base API URL** (everything before `/addReading`):
 - Example: `https://abc123xyz.execute-api.ap-south-1.amazonaws.com/dev`
 
-## Step 7: Update Frontend Configuration
+## 5) Update Frontend Configuration
 
 Edit `frontend/js/config.js`:
 
@@ -171,7 +140,7 @@ const AWS_CONFIG = {
 };
 ```
 
-## Step 8: Test Locally
+## 6) Test Locally (optional)
 
 ### Option 1: Open HTML file directly
 ```bash
@@ -204,7 +173,7 @@ npx http-server frontend -p 8000
 - Install "Live Server" extension
 - Right-click `index.html` → "Open with Live Server"
 
-## Step 9: Test the Application
+## 7) Test the Application
 
 ### 1. Create Account
 1. Open the application
@@ -248,7 +217,8 @@ aws cognito-idp admin-confirm-sign-up \
 1. Click "Generate Tips" button
 2. See energy efficiency suggestions
 
-## Step 10 (Optional): Host Frontend on S3
+## 8) (Optional) Custom Domain for Frontend
+Use ACM (us-east-1) for a free certificate and Route 53 A/ALIAS record to the CloudFront distribution. Then attach the cert + domain as Alternate Domain Name in CloudFront.
 
 ### Create S3 Bucket
 ```bash
