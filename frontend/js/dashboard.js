@@ -104,9 +104,16 @@ async function fetchAnalysis() {
     }
 }
 
+function formatDdMmYy(isoDate) {
+    // isoDate expected YYYY-MM-DD
+    const [y, m, d] = isoDate.split('-');
+    return `${d}-${m}-${y.slice(2)}`;
+}
+
 function updateChart(readings) {
-    const dates = readings.map(r => r.date).sort();
-    const usages = dates.map(date => 
+    const sortedDates = readings.map(r => r.date).sort();
+    const labels = sortedDates.map(d => formatDdMmYy(d));
+    const usages = sortedDates.map(date =>
         readings.find(r => r.date === date).usage
     );
 
@@ -119,7 +126,7 @@ function updateChart(readings) {
     chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: dates,
+            labels: labels,
             datasets: [{
                 label: 'Energy Usage (kWh)',
                 data: usages,
