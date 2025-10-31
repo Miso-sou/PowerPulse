@@ -72,7 +72,7 @@ async function putCachePending(userId, requestHash, ttlSeconds = 30 * 60) {
         TableName: INSIGHTS_CACHE_TABLE,
         Item: { userId, requestHash, status: 'pending', updatedAt: Date.now(), ttl },
         ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(requestHash)'
-    }).promise().catch(() => {});
+    }).promise().catch(() => { });
 }
 
 async function checkAndConsumeRateLimit(userId) {
@@ -449,8 +449,8 @@ exports.handler = async (event) => {
         }
 
         // Get userId from query params or body
-        const userId = event.queryStringParameters?.userId || 
-                      (event.body ? JSON.parse(event.body).userId : null);
+        const userId = event.queryStringParameters?.userId ||
+            (event.body ? JSON.parse(event.body).userId : null);
 
         if (!userId) {
             return {
@@ -468,7 +468,7 @@ exports.handler = async (event) => {
             return {
                 statusCode: 404,
                 headers,
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     error: 'User profile not found',
                     message: 'Please create your profile first to get personalized insights. Go to Profile Settings to add your location, home type, and appliances.'
                 })
@@ -617,7 +617,7 @@ exports.handler = async (event) => {
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 error: 'Failed to generate insights',
                 message: error.message,
                 // Fallback to basic insights
@@ -638,11 +638,11 @@ exports.handler = async (event) => {
  */
 exports.scheduledHandler = async (event) => {
     console.log('Scheduled insights generation:', event);
-    
+
     // This would typically fetch all active users and generate insights for each
     // For now, just log that it was triggered
     console.log('Scheduled insights generation triggered');
-    
+
     return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Scheduled insights generation completed' })

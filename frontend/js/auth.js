@@ -8,7 +8,7 @@ function initCognito() {
         showMessage('Authentication service not loaded. Please refresh the page.', 'danger');
         return false;
     }
-    
+
     const poolData = {
         UserPoolId: AWS_CONFIG.userPoolId,
         ClientId: AWS_CONFIG.clientId
@@ -18,9 +18,9 @@ function initCognito() {
 }
 
 function toggleForms() {
-    document.getElementById('loginForm').style.display = 
+    document.getElementById('loginForm').style.display =
         document.getElementById('loginForm').style.display === 'none' ? 'block' : 'none';
-    document.getElementById('signupForm').style.display = 
+    document.getElementById('signupForm').style.display =
         document.getElementById('signupForm').style.display === 'none' ? 'block' : 'none';
 }
 
@@ -46,7 +46,7 @@ function showMessage(message, type) {
 
 function handleSignup() {
     if (!initCognito()) return;
-    
+
     const email = document.getElementById('signupEmail').value;
     const password = document.getElementById('signupPassword').value;
     const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
@@ -73,7 +73,7 @@ function handleSignup() {
 
 function handleLogin() {
     if (!initCognito()) return;
-    
+
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
 
@@ -114,14 +114,14 @@ function handleLogout() {
         };
         userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
     }
-    
+
     if (userPool) {
         cognitoUser = userPool.getCurrentUser();
         if (cognitoUser) {
             cognitoUser.signOut();
         }
     }
-    
+
     // Clear local storage and redirect
     localStorage.removeItem('userId');
     localStorage.removeItem('idToken');
@@ -130,7 +130,7 @@ function handleLogout() {
 
 function handleVerify() {
     if (!initCognito()) return;
-    
+
     const email = document.getElementById('verifyEmail').value;
     const code = document.getElementById('verifyCode').value;
 
