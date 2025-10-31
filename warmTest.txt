@@ -1,0 +1,7 @@
+
+cold start
+$t = Measure-Command { node -e "require('./backend/csvUpload').handler({source:'demo-cold'}).then(r=>console.log(JSON.stringify(r))).catch(e=>console.error(e))" }; [math]::Round($t.TotalMilliseconds)
+
+pre warm up start
+
+$t = Measure-Command { node -e "const h=require('./backend/csvUpload'); (async()=>{ await h.handler({source:'demo-warm'}); })().catch(e=>console.error(e))" }; [math]::Round($t.TotalMilliseconds)

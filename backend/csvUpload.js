@@ -3,6 +3,20 @@ const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const READINGS_TABLE = process.env.READINGS_TABLE || 'Readings';
 
+// instrumentation: module init timestamp (ms)
+const MODULE_INIT_TIME = Date.now();
+
+function makeResponse(status, bodyObj) {
+    return {
+        statusCode: status,
+        headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify(Object.assign({}, bodyObj, { moduleInitTime: MODULE_INIT_TIME }))
+    };
+}
+
 async function authorizeRequest(event) {
     const authHeader = event.headers?.Authorization;
     if (!authHeader) {
@@ -12,6 +26,35 @@ async function authorizeRequest(event) {
 }
 
 exports.handler = async (event) => {
+    // Warmer short-circuit: accept multiple event shapes
+    try {
+        const logger = require('./logger');
+        const isWarmer = (() => {
+            try {
+                if (!event) return false;
+                if (typeof event === 'string') {
+                    const parsed = JSON.parse(event);
+                    if (parsed && parsed.source === 'warmer') return true;
+                }
+                if (event.source === 'warmer') return true;
+                // API Gateway shape: event.body may be a JSON string
+                if (event.body) {
+                    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+                    if (body && body.source === 'warmer') return true;
+                }
+            } catch (e) {
+                // ignore parse errors
+            }
+            return false;
+        })();
+        if (isWarmer) {
+            logger.info({ msg: 'handler.warmed', function: 'csvUpload' });
+            return makeResponse(200, { warmed: true, function: 'csvUpload' });
+        }
+    } catch (e) {
+        // ignore logger errors
+    }
+
     console.log('CSV Upload Event:', event);
 
     try {
@@ -21,10 +64,7 @@ exports.handler = async (event) => {
         const { userId, readings } = body;
 
         if (!userId || !Array.isArray(readings) || readings.length === 0) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'userId and readings array are required' })
-            };
+            return makeResponse(400, { error: 'userId and readings array are required' });
         }
 
         const validReadings = readings.filter(r => {
@@ -32,10 +72,7 @@ exports.handler = async (event) => {
         });
 
         if (validReadings.length === 0) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'No valid readings found' })
-            };
+            return makeResponse(400, { error: 'No valid readings found' });
         }
 
         const promises = validReadings.map(reading => {
@@ -52,26 +89,12 @@ exports.handler = async (event) => {
 
         await Promise.all(promises);
 
-        return {
-            statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-                message: `${validReadings.length} readings uploaded successfully`,
-                count: validReadings.length
-            })
-        };
+        return makeResponse(200, {
+            message: `${validReadings.length} readings uploaded successfully`,
+            count: validReadings.length
+        });
     } catch (error) {
         console.error('Error:', error);
-        return {
-            statusCode: error.message === 'Unauthorized' ? 401 : 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({ error: error.message })
-        };
+        return makeResponse(error.message === 'Unauthorized' ? 401 : 500, { error: error.message });
     }
 };
