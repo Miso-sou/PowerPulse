@@ -15,6 +15,7 @@ provider:
     INSIGHTS_TABLE: !Ref InsightsTable
     INSIGHTS_CACHE_TABLE: !Ref InsightsCacheTable
     RATE_LIMITS_TABLE: !Ref RateLimitsTable
+    SERVICE_PREFIX: ${self:service}-${self:provider.stage}
     HUGGINGFACE_API_KEY: ${env:HUGGINGFACE_API_KEY, ''}
     OPENWEATHER_API_KEY: ${env:OPENWEATHER_API_KEY, ''}
     USE_AI: ${env:USE_AI, 'false'}
@@ -45,6 +46,14 @@ provider:
             - logs:CreateLogStream
             - logs:PutLogEvents
           Resource: arn:aws:logs:*:*:*
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-addReading
+            - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-csvUpload
+            - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-getAnalysis
+            - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-generateInsights
 
 functions:
   addReading:
@@ -123,6 +132,13 @@ functions:
           authorizer:
             type: COGNITO_USER_POOLS
             arn: arn:aws:cognito-idp:ap-south-1:395616637692:userpool/ap-south-1_JGN9lrlC3
+
+  warmer:
+    handler: backend/warmer.handler
+    timeout: 30
+    events:
+      - schedule: cron(55 8 * * ? *)
+      - schedule: cron(55 17 * * ? *)
 
 plugins:
   - serverless-s3-sync

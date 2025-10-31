@@ -3,6 +3,20 @@ const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const READINGS_TABLE = process.env.READINGS_TABLE || 'Readings';
 
+// instrumentation: module init timestamp (ms)
+const MODULE_INIT_TIME = Date.now();
+
+function makeResponse(status, bodyObj) {
+    return {
+        statusCode: status,
+        headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify(Object.assign({}, bodyObj, { moduleInitTime: MODULE_INIT_TIME }))
+    };
+}
+
 async function authorizeRequest(event) {
     const authHeader = event.headers?.Authorization;
     if (!authHeader) {
@@ -12,6 +26,32 @@ async function authorizeRequest(event) {
 }
 
 exports.handler = async (event) => {
+    // Warmer short-circuit: direct Lambda invocation from warmer will send { source: 'warmer' }
+    try {
+        const logger = require('./logger');
+        const isWarmer = (() => {
+            try {
+                if (!event) return false;
+                if (typeof event === 'string') {
+                    const parsed = JSON.parse(event);
+                    if (parsed && parsed.source === 'warmer') return true;
+                }
+                if (event.source === 'warmer') return true;
+                if (event.body) {
+                    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+                    if (body && body.source === 'warmer') return true;
+                }
+            } catch (e) { }
+            return false;
+        })();
+        if (isWarmer) {
+            logger.info({ msg: 'handler.warmed', function: 'addReading' });
+            return makeResponse(200, { warmed: true, function: 'addReading' });
+        }
+    } catch (e) {
+        // ignore logger errors
+    }
+
     console.log('Add Reading Event:', event);
 
     try {
@@ -46,26 +86,12 @@ exports.handler = async (event) => {
 
         await dynamodb.put(params).promise();
 
-        return {
-            statusCode: 201,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-                message: 'Reading added successfully',
-                data: params.Item
-            })
-        };
+        return makeResponse(201, {
+            message: 'Reading added successfully',
+            data: params.Item
+        });
     } catch (error) {
         console.error('Error:', error);
-        return {
-            statusCode: error.message === 'Unauthorized' ? 401 : 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({ error: error.message })
-        };
+        return makeResponse(error.message === 'Unauthorized' ? 401 : 500, { error: error.message });
     }
 };
