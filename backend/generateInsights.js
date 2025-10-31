@@ -17,6 +17,9 @@ const AI_MODEL = process.env.AI_MODEL || 'google/gemma-2-9b-it';
 // Load appliance profiles
 const applianceProfiles = require('./data/applianceProfiles.json');
 
+// instrumentation: module init time for this module
+const MODULE_INIT_TIME_GLOBAL = Date.now();
+
 /**
  * Fetch user readings from DynamoDB for the last N days
  */
@@ -433,6 +436,38 @@ async function storeInsights(userId, insights, metadata) {
  * Main handler
  */
 exports.handler = async (event) => {
+    // Warm-up short-circuit: if invoked directly by warmer, it will pass { source: 'warmer' }
+    // instrumentation: module init timestamp (ms)
+    const MODULE_INIT_TIME = MODULE_INIT_TIME_GLOBAL || Date.now();
+    try {
+        const logger = require('./logger');
+        const isWarmer = (() => {
+            try {
+                if (!event) return false;
+                if (typeof event === 'string') {
+                    const parsed = JSON.parse(event);
+                    if (parsed && parsed.source === 'warmer') return true;
+                }
+                if (event.source === 'warmer') return true;
+                if (event.body) {
+                    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+                    if (body && body.source === 'warmer') return true;
+                }
+            } catch (e) { }
+            return false;
+        })();
+        if (isWarmer) {
+            logger.info({ msg: 'handler.warmed', function: 'generateInsights' });
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ warmed: true, function: 'generateInsights', moduleInitTime: MODULE_INIT_TIME })
+            };
+        }
+    } catch (e) {
+        // ignore logger errors
+    }
+
     console.log('Generate Insights Event:', JSON.stringify(event, null, 2));
 
     const headers = {
