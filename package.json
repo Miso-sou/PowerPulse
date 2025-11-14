@@ -25,6 +25,10 @@
   ],
   "author": "Semester Project",
   "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.1500.0",
+    "axios": "^1.6.0"
+  },
   "devDependencies": {
     "serverless": "^4.0.0",
     "serverless-s3-sync": "^3.3.1"

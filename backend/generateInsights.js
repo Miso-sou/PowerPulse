@@ -433,6 +433,24 @@ async function storeInsights(userId, insights, metadata) {
 }
 
 /**
+ * Fetch latest stored insights for a user (used as fallback on rate limit)
+ */
+async function fetchLatestInsights(userId, limit = 1) {
+    const params = {
+        TableName: INSIGHTS_TABLE,
+        KeyConditionExpression: 'userId = :userId',
+        ExpressionAttributeValues: {
+            ':userId': userId
+        },
+        ScanIndexForward: false, // newest first (date desc)
+        Limit: limit
+    };
+
+    const result = await dynamodb.query(params).promise();
+    return result.Items || [];
+}
+
+/**
  * Main handler
  */
 exports.handler = async (event) => {
